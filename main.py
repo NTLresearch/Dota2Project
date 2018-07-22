@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import matplotlib.pyplot as plt
-import seaborn
+import seaborn as sns
 import dota2api
 
 api = dota2api.Initialise("8AC9317F6C4C6AA98EECEC8638314A11")
@@ -68,46 +68,90 @@ def get_match_final(data):
 
     return final_data
 
-thanh = get_match_final(test)
-thanh
+match_data = pull_match_id(acc_id=181798082, n=10)
+player_data = get_match_final(match_data)
 
-abc = pd.concat([thanh, test.reset_index()], axis=1)
-
-
-for i in range(0, len(abc)):
-    result = []
-    if abc['radiant_win'][i] == True and abc['player_slot'][i] < 5:
-        result.append(1)
-    elif abc['radiant_win'][i] == False and abc['player_slot'][i] > 5:
-        result.append(1)
-    else:
-        result.append(0)
-
-abc['radiant_win'][2]
-
-abc.shape
-aaa = abc.columns.values
-type(aaa)
-aaa[53]
-aaa[68]
-
-aaa[1:5]
-aaa[8]
-
-
-def recolumn_data(data):
-    col_name = [aaa[0], aaa[8], aaa[]]
+def clean_data(match_data, player_data):
+    clean = pd.concat([match_data.reset_index(), player_data], axis=1)
+    results = []
+    for i in range(0, len(clean)):
+        if clean.iloc[i, 59]==1 and clean.iloc[i,5]=='Radiant':
+            results.append(1)
+        elif clean.iloc[i,59]!=1 and clean.iloc[i,5]=='Dire':
+            results.append(1)
+        else:
+            results.append(0)
+    clean['Results'] = results
+    return clean
 
 
 
 
-thanh2 = thanh[['assists',]
+def final_data(acc_id, n):
+    match_data = pull_match_id(acc_id, n)
+    player_data = get_match_final(match_data)
+    final_df = clean_data(match_data, player_data)
+    return(final_df)
 
 
-tuan_anh = pull_match_id(acc_id=181798082,n=100)
-data_tuan_anh = get_match_final(tuan_anh)
+final1 = final_data(181798082, n=10)
+x = final1.columns.values
+x
+
+final1.columns.values[59]
+
+col_type1 = ['match_id', 'side', 'start_time', 'duration','hero_id', 'radiant_win','kills', 'deaths', 'assists']
 
 
+
+test0 = pull_match_id(181798082, 100)
+test1 = get_match_final(test0)
+test2 = clean_data(test0, test1)
+test3 = test2[col_type1]
+
+
+final2 = final1[col_type1]
+final2.head(2)
+
+
+### Analysis
+wins = len(test2[test2['Results']==1])
+wins_pct = round(wins/len(test2),3)
+wins_pct
+
+losses = len(test2[test2['Results']==0])
+losses_pct = 1 - wins_pct
+
+radiant_wins = test2['radiant_win'].value_counts()
+test3.head(2)
+
+
+### Converting to year month date
+test3['duration'] = round(test3['duration']/60, 3)
+print(test3.index)
+
+
+
+year = []
+month = []
+day = []
+hour = []
+
+a = datetime.datetime.fromtimestamp(test3['start_time'][1])
+a
+
+
+for ix in test3['start_time'].index:
+    ts = datetime.datetime.fromtimestamp(test3['start_time'][ix])
+    year.append(ts.year)
+    month.append(ts.month)
+    day.append(ts.day)
+    hour.append(ts.hour)
+
+test3.insert(3, 'year', year)
+test3.insert(3, 'month', month)
+test3.insert(3, 'day', day)
+test3.insert(3, 'hour', hour)
 
 
 
