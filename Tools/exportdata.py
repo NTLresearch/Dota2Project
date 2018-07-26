@@ -1,13 +1,34 @@
 import pandas as pd
 import numpy as np
 import datetime
-import matplotlib.pyplot as plt
-import seaborn as sns
 import dota2api
 import os
+import datetime
+import json
+import requests
 
 api = dota2api.Initialise("8AC9317F6C4C6AA98EECEC8638314A11")
-hist = api.get_match_history(account_id=107940251, matches_requested=10)
+
+
+def pull_match_opendota(acc_id, n):
+    dota_url = "https://api.opendota.com/api/players/{0}/matches?limit={1}".format(acc_id, n)
+    response = requests.get(dota_url)
+    json_data = json.loads(response.text)
+    match_info = pd.DataFrame()
+    for i in range(0, len(json_data)):
+        temp = json_data[i]
+        match_info = match_info.append(temp, ignore_index=True)
+    return(match_info)
+
+
+data5 = pull_match_opendota(107940251, 1000)
+data5.head(2)
+
+
+data5.loc[:, 'match_id'][1]
+
+
+
 
 
 def pull_match_id(acc_id, n):
@@ -61,6 +82,7 @@ def get_data_player(player_id, match_json):
     """
     invalid2 = {"ability_upgrades", "account_id"}
     player = match_json['players']
+
     for j in range(0, len(player)):
         if player[j]['account_id'] == player_id:
             player_data = {x: player[j][x] for x in player[j] if x not in invalid2}
@@ -81,46 +103,32 @@ def get_match_final(data):
 
     # Load hero_stats_2.csv data
     root_path = os.getcwd()
-    data_path = "Dota2Project/Data/dota_hero_stats_2.csv"
+    data_path = "Data/dota_hero_stats_2.csv"
     hero_path = os.path.join(root_path, data_path)
     hero_stats = pd.read_csv(hero_path)
 
     for i in range(0, len(data)):
-        id = int(data.iloc[i,2])
-        player_id = data.iloc[i,0]
+        id = int(data.loc[:,'match_id'][i])
+        player_id = data.loc[:,'account_id'][i]
 
         match_json = api.get_match_details(id)
 
         temp1 = get_data_match(match_json)
         temp2 = get_data_player(player_id, match_json)
 
-        df = pd.concat([temp1, temp2], axis=1)
+        hero_id = temp2.hero_id.values[0]
+        hero_data = hero_stats[hero_stats.id == hero_id].reset_index()
 
+        df = pd.concat([temp1, temp2, hero_data], axis=1)
         # df = pd.concat([df, data.iloc[i,:]], axis=1)
         final_data = final_data.append(df, ignore_index=True)
-
+        # print('data row number:', i)
         # Exctract hero stats and concatenate to pandas DataFrame
-        hero_id = final_data.hero_id.values[0]
-        hero_data = hero_stats[hero_stats.id == hero_id]
-
-        # Final DataFrame
-        final_data_hero = pd.concat([final_data, hero_data])
-        # final_data = pd.concat([final_data, data], axis=1)
-
-    # return final_data
-    return final_data_hero
-
-match_data = pull_match_id(acc_id=181798082, n=10)
-player_data = get_match_final(match_data)
-
-player_data.columns.values
-ab  = player_data.head(1).hero_id
-ab.values[0]atrd
-### Adding more columns to the data array
+    return final_data
 
 
-def clean_data(match_data, player_data):
-    clean = pd.concat([match_data.reset_index(), player_data], axis=1)
+def add_result_data(match_data, match_final_data):
+    clean = pd.concat([match_data.reset_index(), match_final_data], axis=1)
     results = []
     # Path for hero file
     for i in range(0, len(clean)):
@@ -135,81 +143,50 @@ def clean_data(match_data, player_data):
     clean['Results'] = results
     return clean
 
+def add_extra_data(final_df):
+    year, month, day, hour = ([] for i in range(4))
+    for j in final_df['start_time'].index:
+        ts = datetime.datetime.fromtimestamp(final_df['start_time'][j])
+        year.append(ts.year)
+        month.append(ts.month)
+        day.append(ts.day)
+        hour.append(ts.hour)
+    final_df.insert(3, 'year', year)
+    final_df.insert(4, 'month', month)
+    final_df.insert(5, 'day', day)
+    final_df.insert(6, 'hour', hour)
+    return final_df
 
 ### Final Function
-def final_data(acc_id, n):
-    match_data = pull_match_id(acc_id, n)
-    player_data = get_match_final(match_data)
-    final_df = clean_data(match_data, player_data)
-    return(final_df)
+def final_data(acc_id, n, opendota):
+    api = dota2api.Initialise("8AC9317F6C4C6AA98EECEC8638314A11")
 
+    if opendota="dota2api":
+        match_data = pull_match_id(acc_id, n)
+    else:
+        match_data = pull_match_opendota(acc_id, n)
 
-col_type1 = ['match_id', 'year', 'month', 'day', 'hour', 'side', 'start_time',
-                'duration','hero_id', 'radiant_win','kills', 'deaths', 'assists',]
+    match_final_data = get_match_final(match_data)
+    final_df = add_result_data(match_data, match_final_data)
+    full_extra =  add_extra_data(final_df)
+    return(full_extra)
 
-test1.columns.values
+### Data in order
+def final_data_io(acc_id, n):
+    # dota2api Initilise, change it later to pass argument instead of fixed value
+    data = final_data(acc_id, n)
 
+    # data in order
+    col_export = ['match_id', 'year', 'month', 'day', 'hour', 'side', 'start_time','radiant_win',
+                    'Results','duration','hero_id', 'localized_name', 'primary_attr', 'attack_type',
+                    'primary_attr', 'carry', 'jungler', 'pusher', 'nuker', 'disabler', 'initiator', 'durable', 'support',
+                    'legs','kills', 'deaths', 'assists',]
 
-
-### UNIT_TESTING
-test0 = pull_match_id(181798082, 10)
-test1 = get_match_final(test0)
-test2 = clean_data(test0, test1)
-
-test2.columns.values
-test2.head()
-test3 = test2[col_type1]
-
-final1 = final_data(181798082, 10)
-final1
-
-### Analysis
-wins = len(test2[test2['Results']==1])
-wins_pct = round(wins/len(test2),3)
-wins_pct
-
-losses = len(test2[test2['Results']==0])
-losses_pct = 1 - wins_pct
-
-radiant_wins = test2['radiant_win'].value_counts()
-test3.head(2)
-
-
-### Converting to year month date
-test3['duration'] = round(test3['duration']/60, 3)
-print(test3.index)
-
-
-
-year = []
-month = []
-day = []
-hour = []
-
-a = datetime.datetime.fromtimestamp(test3['start_time'][1])
-a
-
-
-for ix in test3['start_time'].index:
-    ts = datetime.datetime.fromtimestamp(test3['start_time'][ix])
-    year.append(ts.year)
-    month.append(ts.month)
-    day.append(ts.day)
-    hour.append(ts.hour)
-
-test3.insert(3, 'year', year)
-test3.insert(3, 'month', month)
-test3.insert(3, 'day', day)
-test3.insert(3, 'hour', hour)
-
-
-
-
-test3.head(2)
-
-test3.rename(columns={"hero_id":"id"})
-
-
+    data_io = full_extra[col_export]
+    return(data_io)
 
 
 print("done")
+
+if __name__ == '__main__':
+    print("done")
