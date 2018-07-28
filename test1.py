@@ -4,39 +4,16 @@ import dota2api
 import os
 import pandas as pd
 
-api = dota2api.Initialise("8AC9317F6C4C6AA98EECEC8638314A11")
-data = tla.final_data_io(107940251, 200 )
-
-data2 = tla.pull_match_id(107940251, 1000)
-data2.head(2)
-
-
-
-data3 = api.get_match_history(107940251, matches_requested=200)
-
-type(data3)
+data5 = pull_match_opendota(107940251, 100)
+data6 = get_match_final(data5)
+data6.loc[:,'start_time'][1]
+data7 = add_result_data(data5, data6)
+data7 = add_extra_data(data7)
+data7.head()
 
 
-data =
-
-
-
-
-
-import pandas as pd
-a = pd.read_html(r.text)
-
-import json
-import requests
-
-response = requests.get("https://api.opendota.com/api/players/107940251/matches?limit=1000")
+dota_url = "https://api.opendota.com/api/players/{0}/matches?limit={1}".format(107940251, 10)
+response = requests.get(dota_url)
 json_data = json.loads(response.text)
-json_data
-json_data[1]
-data = pd.DataFrame()
-
-for i in range(0, len(json_data)):
-    temp = json_data[i]
-    data = data.append(temp, ignore_index=True)
-
-data.to_csv("107940251.csv")
+match_info = pd.DataFrame()
+json_data[1]['player_slot']

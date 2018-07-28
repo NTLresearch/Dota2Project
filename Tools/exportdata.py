@@ -15,20 +15,24 @@ def pull_match_opendota(acc_id, n):
     response = requests.get(dota_url)
     json_data = json.loads(response.text)
     match_info = pd.DataFrame()
+    player_id = []
+    side = []
     for i in range(0, len(json_data)):
         temp = json_data[i]
+
+        player_id.append(acc_id)
+
+        if temp['player_slot'] < 5:
+            temp_side = "Radiant"
+        else:
+            temp_side = "Dire"
+        side.append(temp_side)
+
         match_info = match_info.append(temp, ignore_index=True)
+
+    match_info.insert(1, "account_id", player_id)
+    match_info.insert(2, "side", side)
     return(match_info)
-
-
-data5 = pull_match_opendota(107940251, 1000)
-data5.head(2)
-
-
-data5.loc[:, 'match_id'][1]
-
-
-
 
 
 def pull_match_id(acc_id, n):
@@ -63,7 +67,7 @@ def get_data_match(match_json):
     Returns:
         pandas DataFrame
     """
-    invalid1 = {"players", "picks_bans"}
+    invalid1 = {"players", "picks_bans", 'start_time', "match_id", "radiant_win", "player_slot"}
     match_data = {x:match_json[x] for x in match_json if x not in invalid1}
     df1 = pd.DataFrame(match_data, index=[0])
     return(df1)
@@ -80,7 +84,7 @@ def get_data_player(player_id, match_json):
     Returns:
         pandas DataFrame
     """
-    invalid2 = {"ability_upgrades", "account_id"}
+    invalid2 = {"ability_upgrades", "account_id", "player_slot"}
     player = match_json['players']
 
     for j in range(0, len(player)):
@@ -122,6 +126,7 @@ def get_match_final(data):
         df = pd.concat([temp1, temp2, hero_data], axis=1)
         # df = pd.concat([df, data.iloc[i,:]], axis=1)
         final_data = final_data.append(df, ignore_index=True)
+        print("Row loaded: ", i)
         # print('data row number:', i)
         # Exctract hero stats and concatenate to pandas DataFrame
     return final_data
@@ -132,9 +137,9 @@ def add_result_data(match_data, match_final_data):
     results = []
     # Path for hero file
     for i in range(0, len(clean)):
-        if clean.iloc[i, 59]==1 and clean.iloc[i,5]=='Radiant':
+        if clean.loc[:,"player_slot"][i] < 5 and clean.loc[:,"radiant_win"][i]==True:
             results.append(1)
-        elif clean.iloc[i,59]!=1 and clean.iloc[i,5]=='Dire':
+        elif clean.loc[:,"player_slot"][i] > 5 and clean.loc[:,"radiant_win"][i]==False:
             results.append(1)
         else:
             results.append(0)
@@ -161,7 +166,7 @@ def add_extra_data(final_df):
 def final_data(acc_id, n, opendota):
     api = dota2api.Initialise("8AC9317F6C4C6AA98EECEC8638314A11")
 
-    if opendota="dota2api":
+    if opendota=="dota2api":
         match_data = pull_match_id(acc_id, n)
     else:
         match_data = pull_match_opendota(acc_id, n)
@@ -172,21 +177,22 @@ def final_data(acc_id, n, opendota):
     return(full_extra)
 
 ### Data in order
-def final_data_io(acc_id, n):
+def final_data_io(acc_id, n, opendota):
     # dota2api Initilise, change it later to pass argument instead of fixed value
-    data = final_data(acc_id, n)
+    data = final_data(acc_id, n, opendota)
 
     # data in order
     col_export = ['match_id', 'year', 'month', 'day', 'hour', 'side', 'start_time','radiant_win',
-                    'Results','duration','hero_id', 'localized_name', 'primary_attr', 'attack_type',
+                    'Results', "player_slot", 'duration','hero_id', 'localized_name', 'primary_attr', 'attack_type',
                     'primary_attr', 'carry', 'jungler', 'pusher', 'nuker', 'disabler', 'initiator', 'durable', 'support',
                     'legs','kills', 'deaths', 'assists',]
 
-    data_io = full_extra[col_export]
+    data_io = data[col_export]
     return(data_io)
 
 
 print("done")
+
 
 if __name__ == '__main__':
     print("done")
